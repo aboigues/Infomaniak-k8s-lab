@@ -1,0 +1,225 @@
+# Exemple de workload IA avec GPU
+# Nécessite que le lab soit démarré avec profile=ai
+# Usage: kubectl apply -f kubernetes/examples/gpu-test.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-ai
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-test
+  namespace: lab-ai
+  labels:
+    app: gpu-test
+    workload: ai-ml
+spec:
+  restartPolicy: OnFailure
+  nodeSelector:
+    node-pool: gpu  # Scheduler sur le node pool GPU
+  containers:
+  - name: cuda-test
+    image: nvidia/cuda:12.0.0-base-ubuntu22.04
+    command: ["nvidia-smi"]
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        nvidia.com/gpu: 1
+        cpu: "1"
+        memory: 2Gi
+
+---
+# Job pour test TensorFlow sur GPU
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tensorflow-gpu-test
+  namespace: lab-ai
+spec:
+  template:
+    metadata:
+      labels:
+        app: tensorflow-test
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        node-pool: gpu
+      containers:
+      - name: tensorflow
+        image: tensorflow/tensorflow:latest-gpu
+        command:
+        - python3
+        - -c
+        - |
+          import tensorflow as tf
+          print("TensorFlow version:", tf.__version__)
+          print("GPU Available:", tf.config.list_physical_devices('GPU'))
+          
+          # Test simple GPU
+          with tf.device('/GPU:0'):
+              a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
+              b = tf.constant([[1.0, 1.0], [0.0, 1.0]])
+              c = tf.matmul(a, b)
+              print("Matrix multiplication result:")
+              print(c)
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            cpu: "4"
+            memory: 8Gi
+          requests:
+            nvidia.com/gpu: 1
+            cpu: "2"
+            memory: 4Gi
+
+---
+# Jupyter Notebook avec GPU pour développement
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-gpu
+  namespace: lab-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-gpu
+  template:
+    metadata:
+      labels:
+        app: jupyter-gpu
+    spec:
+      nodeSelector:
+        node-pool: gpu
+      containers:
+      - name: jupyter
+        image: jupyter/tensorflow-notebook:latest
+        ports:
+        - containerPort: 8888
+          name: jupyter
+        env:
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+        - name: GRANT_SUDO
+          value: "yes"
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            cpu: "4"
+            memory: 16Gi
+          requests:
+            nvidia.com/gpu: 1
+            cpu: "2"
+            memory: 8Gi
+        volumeMounts:
+        - name: notebooks
+          mountPath: /home/jovyan/work
+      volumes:
+      - name: notebooks
+        persistentVolumeClaim:
+          claimName: jupyter-notebooks
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-gpu
+  namespace: lab-ai
+spec:
+  type: ClusterIP
+  selector:
+    app: jupyter-gpu
+  ports:
+  - port: 8888
+    targetPort: 8888
+    name: jupyter
+
+---
+# PVC pour stocker les notebooks
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyter-notebooks
+  namespace: lab-ai
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: high-perf
+
+---
+# Exemple de training PyTorch sur GPU
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pytorch-gpu-training
+  namespace: lab-ai
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: pytorch-training
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        node-pool: gpu
+      containers:
+      - name: pytorch
+        image: pytorch/pytorch:latest
+        command:
+        - python3
+        - -c
+        - |
+          import torch
+          import torch.nn as nn
+          import torch.optim as optim
+          
+          print(f"PyTorch version: {torch.__version__}")
+          print(f"CUDA available: {torch.cuda.is_available()}")
+          
+          if torch.cuda.is_available():
+              print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+              device = torch.device('cuda')
+          else:
+              device = torch.device('cpu')
+          
+          # Modèle simple pour démonstration
+          class SimpleNet(nn.Module):
+              def __init__(self):
+                  super(SimpleNet, self).__init__()
+                  self.fc1 = nn.Linear(784, 128)
+                  self.fc2 = nn.Linear(128, 10)
+              
+              def forward(self, x):
+                  x = torch.relu(self.fc1(x))
+                  x = self.fc2(x)
+                  return x
+          
+          model = SimpleNet().to(device)
+          print("Model created and moved to GPU")
+          print(model)
+          
+          # Test forward pass
+          dummy_input = torch.randn(32, 784).to(device)
+          output = model(dummy_input)
+          print(f"Output shape: {output.shape}")
+          print("GPU training test successful!")
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            cpu: "4"
+            memory: 8Gi
+          requests:
+            nvidia.com/gpu: 1
+            cpu: "2"
+            memory: 4Gi

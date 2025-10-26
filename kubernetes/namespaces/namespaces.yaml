@@ -1,0 +1,50 @@
+---
+# Namespaces pour labs Kubernetes
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-docker
+  labels:
+    purpose: lab
+    type: docker
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-k8s
+  labels:
+    purpose: lab
+    type: kubernetes
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-ai
+  labels:
+    purpose: lab
+    type: ai-ml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-automation
+  labels:
+    purpose: lab
+    type: automation
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    purpose: infrastructure
+    type: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    purpose: infrastructure
+    type: ingress

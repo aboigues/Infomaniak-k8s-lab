@@ -1,0 +1,57 @@
+# Fichiers de configuration sensibles
+.env
+*.secret
+*.key
+*.pem
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!terraform.tfvars.example
+
+# Kubernetes
+kubeconfig.yaml
+*.kubeconfig
+
+# Backups
+backups/*.yaml
+!backups/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Système
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Temporaires
+/tmp/
+*.tmp
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

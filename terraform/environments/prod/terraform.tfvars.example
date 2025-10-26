@@ -1,0 +1,33 @@
+# Exemple de configuration Terraform
+# Copier ce fichier vers terraform.tfvars et remplir avec vos valeurs
+
+# Credentials Infomaniak OpenStack
+openstack_tenant_name = "votre-projet-infomaniak"
+openstack_username    = "votre-username"
+openstack_password    = "votre-password"
+
+# ID du réseau externe (obtenir via: openstack network list --external)
+external_network_id = "votre-network-id-externe"
+
+# ID du template Kubernetes (obtenir via API Infomaniak)
+cluster_template_id = "votre-template-id"
+
+# Nom de votre keypair SSH (créer d'abord via console Infomaniak)
+keypair_name = "votre-keypair-name"
+
+# Configuration Lab
+lab_active = false  # Démarrer avec lab arrêté (nodes à 0)
+
+# Restriction IP pour SSH/API (recommandé en production)
+admin_ip_cidr = "0.0.0.0/0"  # Remplacer par votre IP publique/32
+
+# Node Pools - Configuration par défaut
+general_pool_desired = 2
+memory_pool_desired  = 1
+gpu_pool_active      = false  # Activer uniquement pour sessions IA
+
+# Stockage
+s3_bucket_name = "mon-lab-artifacts"  # Doit être unique
+
+# Load Balancer (désactivé par défaut pour économiser)
+create_load_balancer = false
