@@ -1,0 +1,15 @@
+repos:
+- repo: https://github.com/koalaman/shellcheck
+  rev: v0.9.0
+  hooks:
+    - id: shellcheck
+      files: \.sh$
+- repo: https://github.com/antonbabenko/pre-commit-terraform
+  rev: v1.71.0
+  hooks:
+    - id: terraform_fmt
+    - id: terraform_validate
+- repo: https://github.com/markdownlint/markdownlint
+  rev: v0.11.0
+  hooks:
+    - id: markdownlint
