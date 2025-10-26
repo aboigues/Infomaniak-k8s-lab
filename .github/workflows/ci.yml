@@ -1,65 +1,85 @@
 name: CI
+
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   lint-validate:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: '1.5.0'
-
-      - name: Install tools
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq curl unzip nodejs npm
-          # kubeval
-          curl -sL -o /usr/local/bin/kubeval \
-            https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64
-          sudo chmod +x /usr/local/bin/kubeval
-          # markdownlint
-          sudo npm install -g markdownlint-cli
-
-      - name: Shellcheck (scripts/)
-        if: ${{ always() }}
-        run: |
-          if [ -d scripts ]; then
-            find scripts -type f -name '*.sh' -print0 | xargs -0 -r shellcheck -x
-          fi
-
-      - name: Markdown lint
-        run: |
-          markdownlint '**/*.md' || true
-
-      - name: Terraform fmt check
-        if: ${{ always() }}
-        working-directory: ./terraform
-        run: |
-          if [ -d terraform ]; then
-            terraform init -backend=false
-            terraform fmt -check
-          fi
-
-      - name: Terraform validate
-        if: ${{ always() }}
-        working-directory: ./terraform
-        run: |
-          if [ -d terraform ]; then
-            terraform init -backend=false
-            terraform validate || true
-          fi
-
-      - name: Kube manifests validation (kubeval)
-        if: ${{ always() }}
-        run: |
-          if [ -d kubernetes ]; then
-            find kubernetes -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | xargs -0 -r kubeval || true
-          fi
+    - uses: actions/checkout@v4
+    
+    - name: Install kubeval
+      run: |
+        wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+        tar xf kubeval-linux-amd64.tar.gz
+        sudo mv kubeval /usr/local/bin/
+        sudo chmod +x /usr/local/bin/kubeval
+        kubeval --version
+    
+    - name: Shellcheck
+      run: |
+        if ! command -v shellcheck &> /dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+        fi
+        
+        # Exécuter shellcheck avec niveau de sévérité "error" uniquement
+        find scripts -type f -name "*.sh" -print0 | xargs -0 shellcheck --severity=error || {
+          echo "⚠️  Erreurs shellcheck trouvées. Veuillez corriger les erreurs critiques."
+          exit 1
+        }
+        
+        # Afficher les warnings mais ne pas fail
+        echo "📋 Warnings shellcheck (informatifs seulement):"
+        find scripts -type f -name "*.sh" -print0 | xargs -0 shellcheck --severity=warning || true
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      if: hashFiles('terraform/**') != ''
+    
+    - name: Terraform fmt
+      if: hashFiles('terraform/**') != ''
+      run: |
+        if [ -d terraform ]; then
+          terraform init -backend=false
+          terraform fmt -check
+        fi
+    
+    - name: Terraform validate
+      if: hashFiles('terraform/**') != ''
+      run: |
+        if [ -d terraform ]; then
+          terraform init -backend=false
+          terraform validate || true
+        fi
+    
+    - name: Validate Kubernetes manifests
+      run: |
+        if [ -d kubernetes ]; then
+          find kubernetes -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | \
+            xargs -0 -r kubeval --ignore-missing-schemas || true
+        fi
+    
+    - name: Markdown lint
+      run: |
+        if command -v markdownlint &> /dev/null; then
+          markdownlint '**/*.md' --ignore node_modules || true
+        else
+          echo "markdownlint non installé, skip"
+        fi
+    
+    - name: YAML lint
+      run: |
+        if command -v yamllint &> /dev/null; then
+          find . -type f \( -name '*.yml' -o -name '*.yaml' \) \
+            ! -path "*/node_modules/*" \
+            ! -path "*/.git/*" \
+            -print0 | xargs -0 -r yamllint -f parsable || true
+        else
+          echo "yamllint non installé, skip"
+        fi

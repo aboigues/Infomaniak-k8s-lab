@@ -93,8 +93,8 @@ backup() {
     echo ""
     echo "Nettoyage des anciens backups..."
     cd "$BACKUP_DIR"
-    ls -t backup-*.tar.gz | tail -n +8 | xargs -r rm
-    echo "Backups conservés: $(ls -1 backup-*.tar.gz 2>/dev/null | wc -l)"
+    find . -maxdepth 1 -name "backup-*.tar.gz" -type f -printf \'%T@ %p\n\' | sort -rn | tail -n +8 | cut -d\' \' -f2- | xargs -r rm
+    echo "Backups conservés: $(find . -maxdepth 1 -name \"backup-*.tar.gz\" -type f | wc -l)"
 }
 
 # Fonction restore
@@ -138,7 +138,8 @@ restore() {
     fi
     
     # Extraire le backup
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
     tar -xzf "$restore_file" -C "$temp_dir"
     
     echo "Application des ressources..."
@@ -160,7 +161,8 @@ restore() {
     )
     
     for resource in "${resources[@]}"; do
-        local file=$(find "$temp_dir" -name "*-${resource}.yaml" | head -1)
+        local file
+        file=$(find "$temp_dir" -name "*-${resource}.yaml" | head -1)
         if [ -f "$file" ]; then
             echo "  Restauration: $resource"
             kubectl apply -f "$file" 2>/dev/null || echo "    Warning: Erreurs lors de la restauration de $resource"
@@ -189,7 +191,8 @@ list_backups() {
     
     cd "$BACKUP_DIR"
     
-    if [ ! -f backup-*.tar.gz ]; then
+    backups=(backup-*.tar.gz)
+    if [ ! -f "${backups[0]}" ]; then
         echo "Aucun backup trouvé"
         exit 0
     fi
@@ -199,8 +202,10 @@ list_backups() {
     printf "%-25s %-10s %-20s\n" "FICHIER" "TAILLE" "DATE"
     echo "-----------------------------------------------------------"
     
-    for backup in $(ls -t backup-*.tar.gz); do
-        local size=$(du -h "$backup" | cut -f1)
+    for backup in backup-*.tar.gz; do
+        [ -f "$backup" ] || continue
+        local size date
+        size=$(du -h "$backup" | cut -f1)
         local date=$(echo "$backup" | sed 's/backup-\(.*\)\.tar\.gz/\1/' | sed 's/\([0-9]\{8\}\)-\([0-9]\{6\}\)/\1 \2/')
         printf "%-25s %-10s %-20s\n" "$backup" "$size" "$date"
     done

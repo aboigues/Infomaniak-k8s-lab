@@ -1,0 +1,5 @@
+# Configuration ShellCheck
+
+# Désactiver les règles d'information uniquement
+disable=SC1091  # Not following: fichier source non trouvé (normal pour .env)
+disable=SC2012  # Use find instead of ls (acceptable dans certains cas simples)
